@@ -20,25 +20,53 @@ const PORT = 3000;
 app.use(cors());
 
 // Lógica de Socket.io para contar usuarios
+const activeUsers = new Map(); // Mapa para rastrear usuarios únicos: { "IP_o_DeviceID": Set(socketIds) }
+
 io.on('connection', (socket) => {
-    console.log('Un usuario se ha conectado. ID:', socket.id);
+    // Intentar obtener un ID único:
+    // 1. Busca 'deviceId' en los query params (lo ideal, enviado desde el front)
+    // 2. Si no, usa la IP del cliente (fallback)
+    const deviceId = socket.handshake.query.deviceId;
+    const ip = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
 
-    // Obtener el número de clientes conectados
-    const count = io.engine.clientsCount;
+    // El identificador único será el deviceId (si existe) o la IP
+    const uniqueId = deviceId || ip;
 
-    // Emitir a TODOS los clientes la nueva cantidad
-    io.emit('online_users', { count: count });
+    console.log(`Usuario conectado. Socket ID: ${socket.id}, Unique ID: ${uniqueId}`);
+
+    // Agregamos al usuario al registro
+    if (!activeUsers.has(uniqueId)) {
+        activeUsers.set(uniqueId, new Set());
+    }
+    activeUsers.get(uniqueId).add(socket.id);
+
+    // Obtener el número de usuarios ÚNICOS
+    const uniqueCount = activeUsers.size;
+
+    // Emitir a TODOS los clientes la nueva cantidad de usuarios únicos
+    io.emit('online_users', { count: uniqueCount });
 
     socket.on('disconnect', () => {
-        console.log('Un usuario se ha desconectado. ID:', socket.id);
-        const newCount = io.engine.clientsCount; // Socket.io actualiza esto automáticamente tras disconnect
-        io.emit('online_users', { count: newCount });
+        console.log(`Usuario desconectado. Socket ID: ${socket.id}, Unique ID: ${uniqueId}`);
+
+        if (activeUsers.has(uniqueId)) {
+            const userSockets = activeUsers.get(uniqueId);
+            userSockets.delete(socket.id);
+
+            // Si el usuario ya no tiene sockets abiertos (cerró todas las pestañas), lo removemos
+            if (userSockets.size === 0) {
+                activeUsers.delete(uniqueId);
+            }
+        }
+
+        const newUniqueCount = activeUsers.size;
+        io.emit('online_users', { count: newUniqueCount });
     });
 });
 
 // Endpoint opcional para consultar vía HTTP
 app.get('/api/online-count', (req, res) => {
-    res.json({ count: io.engine.clientsCount });
+    res.json({ count: activeUsers.size });
 });
 
 // Endpoint del Proxy
