@@ -16,8 +16,12 @@ const io = new Server(server, {
 const PORT = 3000;
 
 app.use(cors());
+app.use(express.json());
+
 
 const activeUsers = new Map();
+const specialSlugs = new Map();
+
 
 io.on('connection', (socket) => {
     const deviceId = socket.handshake.query.deviceId;
@@ -44,7 +48,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const ADMIN_PASSWORD = 'admin123'; // Cambiar por una contraseña segura
+const ADMIN_PASSWORD = 'Facundo060604!';
 
 const authenticateAdmin = (req, res, next) => {
     const { password } = req.query;
@@ -60,7 +64,6 @@ app.get('/api/online-count', authenticateAdmin, (req, res) => {
 });
 
 app.get('/api/admin/data', authenticateAdmin, (req, res) => {
-    // Convertir el Map a un formato JSON serializable
     const usersData = Array.from(activeUsers.entries()).map(([key, value]) => ({
         uniqueId: key,
         sockets: Array.from(value)
@@ -71,6 +74,27 @@ app.get('/api/admin/data', authenticateAdmin, (req, res) => {
         users: usersData
     });
 });
+
+app.post('/api/admin/slug', authenticateAdmin, (req, res) => {
+    const { slug, channels } = req.body;
+
+    if (!slug || !channels || !Array.isArray(channels)) {
+        return res.status(400).json({ error: 'Formato inválido. Se requiere "slug" y un array de "channels".' });
+    }
+
+    specialSlugs.set(slug, channels);
+    res.json({ message: 'Slug guardado exitosamente', slug, channels });
+});
+
+app.get('/api/slug/:slug', (req, res) => {
+    const { slug } = req.params;
+    if (specialSlugs.has(slug)) {
+        res.json({ channels: specialSlugs.get(slug) });
+    } else {
+        res.status(404).json({ error: 'Slug no encontrado' });
+    }
+});
+
 
 app.get('/proxy', async (req, res) => {
     const streamUrl = req.query.url;
