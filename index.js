@@ -47,7 +47,10 @@ function saveSlugs() {
     }
 }
 
+
 io.on('connection', (socket) => {
+
+
 
     const deviceId = socket.handshake.query.deviceId;
     const ip = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
@@ -74,15 +77,29 @@ io.on('connection', (socket) => {
 });
 
 const ADMIN_PASSWORD = 'Facundo060604!';
+const ADMIN_TOKEN = 'token-secreto-admin-123'; // En producción usar JWT o algo más seguro
 
 const authenticateAdmin = (req, res, next) => {
     const { password } = req.query;
-    if (password === ADMIN_PASSWORD) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (password === ADMIN_PASSWORD || token === ADMIN_TOKEN) {
         next();
     } else {
-        res.status(403).json({ error: 'Acceso denegado: Contraseña incorrecta' });
+        res.status(403).json({ error: 'Acceso denegado: Credenciales incorrectas' });
     }
 };
+
+app.post('/api/admin/login', (req, res) => {
+    const { password } = req.body;
+    if (password === ADMIN_PASSWORD) {
+        res.json({ token: ADMIN_TOKEN });
+    } else {
+        res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+});
+
 
 app.get('/api/online-count', authenticateAdmin, (req, res) => {
     res.json({ count: activeUsers.size });
