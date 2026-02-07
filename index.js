@@ -146,6 +146,18 @@ app.put('/api/admin/slug/:slug', authenticateAdmin, (req, res) => {
     res.json({ message: 'Slug actualizado exitosamente', slug, channels });
 });
 
+app.delete('/api/admin/slug/:slug', authenticateAdmin, (req, res) => {
+    const { slug } = req.params;
+
+    if (!specialSlugs.has(slug)) {
+        return res.status(404).json({ error: 'Slug no encontrado' });
+    }
+
+    specialSlugs.delete(slug);
+    saveSlugs();
+    res.json({ message: 'Slug eliminado exitosamente', slug });
+});
+
 
 app.get('/api/admin/slugs', authenticateAdmin, (req, res) => {
 
