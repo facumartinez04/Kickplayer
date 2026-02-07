@@ -121,7 +121,12 @@ app.get('/api/admin/slugs', authenticateAdmin, (req, res) => {
     res.json({ slugs });
 });
 
+app.get('/api/admin/validate', authenticateAdmin, (req, res) => {
+    res.json({ valid: true });
+});
+
 app.get('/api/slug/:slug', (req, res) => {
+
 
     const { slug } = req.params;
     if (specialSlugs.has(slug)) {
