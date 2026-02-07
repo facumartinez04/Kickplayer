@@ -44,8 +44,32 @@ io.on('connection', (socket) => {
     });
 });
 
-app.get('/api/online-count', (req, res) => {
+const ADMIN_PASSWORD = 'admin123'; // Cambiar por una contraseña segura
+
+const authenticateAdmin = (req, res, next) => {
+    const { password } = req.query;
+    if (password === ADMIN_PASSWORD) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Acceso denegado: Contraseña incorrecta' });
+    }
+};
+
+app.get('/api/online-count', authenticateAdmin, (req, res) => {
     res.json({ count: activeUsers.size });
+});
+
+app.get('/api/admin/data', authenticateAdmin, (req, res) => {
+    // Convertir el Map a un formato JSON serializable
+    const usersData = Array.from(activeUsers.entries()).map(([key, value]) => ({
+        uniqueId: key,
+        sockets: Array.from(value)
+    }));
+
+    res.json({
+        total: activeUsers.size,
+        users: usersData
+    });
 });
 
 app.get('/proxy', async (req, res) => {
