@@ -3,6 +3,11 @@ const axios = require('axios');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require("socket.io");
+const fs = require('fs');
+const path = require('path');
+
+const SLUGS_FILE = path.join(__dirname, 'slugs.json');
+
 
 const app = express();
 const server = http.createServer(app);
@@ -20,10 +25,30 @@ app.use(express.json());
 
 
 const activeUsers = new Map();
-const specialSlugs = new Map();
+let specialSlugs = new Map();
 
+// Cargar slugs guardados
+if (fs.existsSync(SLUGS_FILE)) {
+    try {
+        const data = fs.readFileSync(SLUGS_FILE, 'utf8');
+        specialSlugs = new Map(JSON.parse(data));
+        console.log('Slugs cargados correctamente');
+    } catch (error) {
+        console.error('Error al cargar slugs:', error);
+    }
+}
+
+function saveSlugs() {
+    try {
+        const data = JSON.stringify(Array.from(specialSlugs.entries()), null, 2);
+        fs.writeFileSync(SLUGS_FILE, data);
+    } catch (error) {
+        console.error('Error al guardar slugs:', error);
+    }
+}
 
 io.on('connection', (socket) => {
+
     const deviceId = socket.handshake.query.deviceId;
     const ip = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
     const uniqueId = deviceId || ip;
@@ -83,10 +108,21 @@ app.post('/api/admin/slug', authenticateAdmin, (req, res) => {
     }
 
     specialSlugs.set(slug, channels);
+    saveSlugs(); // Guardar cambios en archivo
     res.json({ message: 'Slug guardado exitosamente', slug, channels });
 });
 
+
+app.get('/api/admin/slugs', authenticateAdmin, (req, res) => {
+    const slugs = Array.from(specialSlugs.entries()).map(([slug, channels]) => ({
+        slug,
+        channels
+    }));
+    res.json({ slugs });
+});
+
 app.get('/api/slug/:slug', (req, res) => {
+
     const { slug } = req.params;
     if (specialSlugs.has(slug)) {
         res.json({ channels: specialSlugs.get(slug) });
