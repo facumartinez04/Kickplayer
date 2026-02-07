@@ -129,8 +129,26 @@ app.post('/api/admin/slug', authenticateAdmin, (req, res) => {
     res.json({ message: 'Slug guardado exitosamente', slug, channels });
 });
 
+app.put('/api/admin/slug/:slug', authenticateAdmin, (req, res) => {
+    const { slug } = req.params;
+    const { channels } = req.body;
+
+    if (!specialSlugs.has(slug)) {
+        return res.status(404).json({ error: 'Slug no encontrado' });
+    }
+
+    if (!channels || !Array.isArray(channels)) {
+        return res.status(400).json({ error: 'Formato inválido. Se requiere un array de "channels".' });
+    }
+
+    specialSlugs.set(slug, channels);
+    saveSlugs();
+    res.json({ message: 'Slug actualizado exitosamente', slug, channels });
+});
+
 
 app.get('/api/admin/slugs', authenticateAdmin, (req, res) => {
+
     const slugs = Array.from(specialSlugs.entries()).map(([slug, channels]) => ({
         slug,
         channels
