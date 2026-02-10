@@ -79,6 +79,10 @@ io.on('connection', (socket) => {
 const ADMIN_PASSWORD = 'Facundo060604!';
 const ADMIN_TOKEN = 'token-secreto-admin-123'; // En producción usar JWT o algo más seguro
 
+// Contraseña y token específicos para editar SOLO lostopglobales
+const TOPGLOBALES_PASSWORD = 'TG-a8f5c3e7-9b2d-4f1a-8c6e-3d4b7a9f2e5c-SECURE-2026';
+const TOPGLOBALES_TOKEN = 'topglobales-token-9f7e6d5c4b3a2e1f0a9b8c7d6e5f4a3b';
+
 const authenticateAdmin = (req, res, next) => {
     const { password } = req.query;
     const authHeader = req.headers['authorization'];
@@ -91,10 +95,36 @@ const authenticateAdmin = (req, res, next) => {
     }
 };
 
+// Middleware para autenticar solo edición de topglobales
+const authenticateTopGlobales = (req, res, next) => {
+    const { password } = req.query;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (password === TOPGLOBALES_PASSWORD || token === TOPGLOBALES_TOKEN) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Acceso denegado: Credenciales incorrectas para TopGlobales' });
+    }
+};
+
 app.post('/api/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === ADMIN_PASSWORD) {
         res.json({ token: ADMIN_TOKEN });
+    } else {
+        res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+});
+
+// Login específico para editar topglobales
+app.post('/api/admin/login-topglobales', (req, res) => {
+    const { password } = req.body;
+    if (password === TOPGLOBALES_PASSWORD) {
+        res.json({
+            token: TOPGLOBALES_TOKEN,
+            message: 'Acceso autorizado para editar TopGlobales'
+        });
     } else {
         res.status(401).json({ error: 'Contraseña incorrecta' });
     }
@@ -144,6 +174,28 @@ app.put('/api/admin/slug/:slug', authenticateAdmin, (req, res) => {
     specialSlugs.set(slug, channels);
     saveSlugs();
     res.json({ message: 'Slug actualizado exitosamente', slug, channels });
+});
+
+// Endpoint específico solo para editar el slug "lostopglobales"
+app.put('/api/admin/slug-lostopglobales', authenticateTopGlobales, (req, res) => {
+    const { channels } = req.body;
+    const ALLOWED_SLUG = 'lostopglobales';
+
+    if (!channels || !Array.isArray(channels)) {
+        return res.status(400).json({ error: 'Formato inválido. Se requiere un array de "channels".' });
+    }
+
+    if (!specialSlugs.has(ALLOWED_SLUG)) {
+        return res.status(404).json({ error: 'El slug "lostopglobales" no existe' });
+    }
+
+    specialSlugs.set(ALLOWED_SLUG, channels);
+    saveSlugs();
+    res.json({
+        message: 'Slug "lostopglobales" actualizado exitosamente',
+        slug: ALLOWED_SLUG,
+        channels
+    });
 });
 
 app.delete('/api/admin/slug/:slug', authenticateAdmin, (req, res) => {
